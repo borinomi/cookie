@@ -7,8 +7,8 @@ services:
       - "8002:8002"
     volumes:
       - /cookie:/app/data/
-    env_file:
-      - .env
+    #env_file:
+    #  - .env
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONIOENCODING=UTF-8
