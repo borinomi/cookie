@@ -26,7 +26,7 @@ class CurlRequest(BaseModel):
 async def get_cookies(request: CookieRequest):
     async with async_playwright() as p:
         browser = await p.chromium.connect_over_cdp(f"http://{CDP_HOST}:{CDP_PORT}")
-        context = await browser.new_context()
+        context = browser.contexts[0]
         page = await context.new_page()
         
         await page.goto(str(request.url))
@@ -36,6 +36,7 @@ async def get_cookies(request: CookieRequest):
         cookies = await context.cookies(str(request.url))
         cookie_header = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
         
+        await page.close()
         return CookieResponse(cookie_header=cookie_header)
 
 @app.post("/curl")
