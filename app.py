@@ -22,6 +22,25 @@ class CookieResponse(BaseModel):
 class CurlRequest(BaseModel):
     command: str
 
+class HtmlResponse(BaseModel):
+    data: str
+
+@app.post("/get-html")
+async def get_html(request: CookieRequest):
+    async with async_playwright() as p:
+        browser = await p.chromium.connect_over_cdp(f"http://{CDP_HOST}:{CDP_PORT}")
+        context = browser.contexts[0]
+        page = await context.new_page()
+        
+        await page.goto(str(request.url))
+        await page.wait_for_load_state('domcontentloaded')
+        await asyncio.sleep(2)
+        
+        html = await page.content()
+        
+        await page.close()
+        return HtmlResponse(data=html)
+
 @app.post("/get-cookies")
 async def get_cookies(request: CookieRequest):
     async with async_playwright() as p:
