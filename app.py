@@ -41,6 +41,24 @@ async def get_html(request: CookieRequest):
         await page.close()
         return HtmlResponse(data=html)
 
+@app.post("/get-shot")
+async def get_screenshot(request: CookieRequest):
+    async with async_playwright() as p:
+        browser = await p.chromium.connect_over_cdp(f"http://{CDP_HOST}:{CDP_PORT}")
+        context = browser.contexts[0]
+        page = await context.new_page()
+        
+        await page.goto(str(request.url))
+        await page.wait_for_load_state('domcontentloaded')
+        await asyncio.sleep(5)
+        
+        screenshot = await page.screenshot(full_page=True)
+        
+        await page.close()
+        
+        import base64
+        return {"data": base64.b64encode(screenshot).decode('utf-8')}
+
 @app.post("/get-cookies")
 async def get_cookies(request: CookieRequest):
     async with async_playwright() as p:
@@ -92,4 +110,4 @@ async def execute_curl(request: CurlRequest):
         }
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8005)
+    uvicorn.run(app, host="0.0.0.0", port=8002)
