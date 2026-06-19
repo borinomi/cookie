@@ -3,10 +3,12 @@ import os
 import socket
 import subprocess
 from datetime import datetime
+from typing import Optional
 from fastapi import FastAPI
 from pydantic import BaseModel, HttpUrl
 import uvicorn
 from playwright.async_api import async_playwright
+
 
 app = FastAPI()
 
@@ -24,6 +26,12 @@ class CurlRequest(BaseModel):
 
 class HtmlResponse(BaseModel):
     data: str
+
+class SimpleCookieRequest(BaseModel):
+    domain: str
+    cookies: dict
+    goto_url: Optional[str] = None
+    clear_first: bool = True
 
 @app.post("/get-html")
 async def get_html(request: CookieRequest):
@@ -108,6 +116,42 @@ async def execute_curl(request: CurlRequest):
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }
+
+@app.post("/inject-cookies")
+async def inject_cookies(request: SimpleCookieRequest):
+    async with async_playwright() as p:
+        browser = await p.chromium.connect_over_cdp(f"http://{CDP_HOST}:{CDP_PORT}")
+        context = browser.contexts[0]
+
+        if request.clear_first:
+            await context.clear_cookies(domain=request.domain)
+
+        cookie_list = [
+            {
+                "name": name,
+                "value": value,
+                "domain": request.domain,
+                "path": "/",
+                "secure": True,
+                "httpOnly": True,
+                "sameSite": "None",
+            }
+            for name, value in request.cookies.items()
+        ]
+        await context.add_cookies(cookie_list)
+
+        result = {"success": True, "injected": len(cookie_list)}
+
+        if request.goto_url:
+            page = await context.new_page()
+            await page.goto(request.goto_url)
+            await page.wait_for_load_state('domcontentloaded')
+            await asyncio.sleep(2)
+            result["url"] = page.url
+            await page.close()
+
+        result["timestamp"] = datetime.now().isoformat()
+        return result
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8002)

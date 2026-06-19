@@ -6,7 +6,7 @@ services:
     ports:
       - "8002:8002"
     #volumes:
-    #  - /cookie:/app/data/
+    #  - /data:/app/data/
     #env_file:
     #  - .env
     environment:
